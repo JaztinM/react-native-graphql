@@ -5,8 +5,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation } from 'expo-router';
 import { Dimensions } from 'react-native';
 import { Message } from '@/types';
+import { useAuthCheck } from '@/utils/authUtil';
 
 export default function Messages() {
+
+    const { isAuthenticated, isLoading } = useAuthCheck();
+
+    useEffect(() => {
+        if (!isLoading && !isAuthenticated) {
+            router.replace("/");
+        }
+    }, [isLoading, isAuthenticated]);
 
     const myId = '1';
     const { sender_id } = useLocalSearchParams();
@@ -43,6 +52,9 @@ export default function Messages() {
 
     const ourMessages = messages.filter((message) => (message.sender_id === myId && message.receiver_id === sender_id) || (message.sender_id === sender_id && message.receiver_id === myId));
 
+    if (isLoading) {
+        return null; // Show nothing while checking auth
+    }
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>

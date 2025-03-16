@@ -6,7 +6,16 @@ import { router } from 'expo-router';
 import { useNavigation } from 'expo-router';
 import { Ionicons } from "@expo/vector-icons";
 import { Message, User } from '@/types';
+import { useAuthCheck } from '@/utils/authUtil';
 export default function Home() {
+
+    const { isAuthenticated, isLoading } = useAuthCheck();
+
+    useEffect(() => {
+        if (!isLoading && !isAuthenticated) {
+            router.replace("/");
+        }
+    }, [isLoading, isAuthenticated]);
 
     const myId = '1';
     const navigation = useNavigation();
@@ -61,6 +70,10 @@ export default function Home() {
             setFilteredUsers(results);
         }
     };
+
+    if (isLoading) {
+        return null; // Show nothing while checking auth
+    }
 
     return (
         <>

@@ -3,8 +3,8 @@ import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
-import Register from './register';
-import Login from './login';
+import Register from './register/Register';
+import Login from './login/Login';
 
 export default function Index() {
     const [isLoading, setIsLoading] = useState<boolean>(true);
