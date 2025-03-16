@@ -9,6 +9,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="home" />
         <Stack.Screen name="messages" />
+        <Stack.Screen name="search" />
         <Stack.Screen
           name="+not-found"
         />

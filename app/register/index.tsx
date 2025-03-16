@@ -33,43 +33,58 @@ export default function Register({ setComponentType }: { setComponentType: (type
 
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Register</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Username"
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-            />
-            <TextInput
-                style={styles.input}
-                placeholder="Email"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-            />
-            <TextInput
-                style={styles.input}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-            />
-            <Text style={styles.register}>
-                <Text style={styles.registerLink} onPress={() => setComponentType('login')}>
-                    Already have an account?
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={styles.container}>
+                <Text style={styles.title}>Register</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Username"
+                    value={username}
+                    onChangeText={setUsername}
+                    autoCapitalize="none"
+                />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                />
+                <Text style={styles.register}>
+                    <Text style={styles.registerLink} onPress={() => setComponentType('login')}>
+                        Already have an account?
+                    </Text>
                 </Text>
-            </Text>
-            <TouchableOpacity style={styles.button} onPress={handleRegister}>
-                <Text style={styles.buttonText}>Sign In</Text>
-            </TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={handleRegister}>
+                    <Text style={styles.buttonText}>Sign In</Text>
+                </TouchableOpacity>
+            </View>
         </View>
+
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, maxWidth: 320, alignSelf: 'center', width: '100%' },
+    container: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        maxWidth: 320,
+        alignSelf: 'center',
+        width: '100%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 5,
+    },
     title: { fontSize: 24, marginBottom: 30, fontWeight: '600' },
     register: { fontSize: 12, alignSelf: 'flex-start', marginTop: -7, marginLeft: 2 },
     registerLink: {

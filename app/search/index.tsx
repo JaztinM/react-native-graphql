@@ -1,21 +1,17 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { router } from 'expo-router';
 import { useNavigation } from 'expo-router';
-import { Ionicons } from "@expo/vector-icons";
-import { Message, User } from '@/types';
-export default function Home() {
+export default function Search() {
 
     const myId = '1';
-    const navigation = useNavigation();
 
     const [users, setUsers] = useState([{ id: '1', username: 'John Doe' }, { id: '2', username: 'John Doe2' }, { id: '3', username: 'John Doe3' }, { id: '4', username: 'John Doe4' }]);
     const [search, setSearch] = useState("");
-    const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-    const [searching, setSearching] = useState<boolean>(false);
-    const [data, setData] = useState<Message[]>([
+
+    const [data, setData] = useState([
         { id: '1', sender_id: '1', receiver_id: '2', username: 'John Doe', message: 'Hello, how are you?' },
         { id: '2', sender_id: '2', receiver_id: '1', username: 'John Doe', message: 'Hello, how are you2?' },
         { id: '3', sender_id: '2', receiver_id: '1', username: 'John Doe', message: 'Hello, how are you3?' },
@@ -37,45 +33,13 @@ export default function Home() {
         convo => convo.sender_id === myId || convo.receiver_id === myId
     );
 
-    useLayoutEffect(() => {
-        navigation.setOptions({ title: "Home Page", headerShown: !searching });
-    }, [searching]);
-
-    const searchClicked = () => {
-        setSearching(true);
-    };
-
-    const backSearchClicked = () => {
-        setSearch('');
-        setSearching(false);
-    }
-
-    const handleSearch = (text: string) => {
-        setSearch(text);
-        if (text.trim() === "") {
-            setFilteredUsers([]); // Reset to all users if search is empty
-        } else {
-            const results = users.filter((user) =>
-                user.username.toLowerCase().startsWith(text.toLowerCase())
-            );
-            setFilteredUsers(results);
-        }
-    };
-
     return (
         <>
-            <TouchableOpacity style={styles.searchContainer} onPress={searchClicked}  >
-                {
-                    searching ?
-                        <TouchableOpacity onPress={backSearchClicked} style={{ padding: 10, paddingLeft: 0 }}>
-                            <Ionicons name="arrow-back" size={24} color="black" />
-                        </TouchableOpacity> : null
-                }
-
+            <View style={styles.searchContainer}>
                 <TextInput
                     placeholder="Search User"
                     value={search}
-                    onChangeText={handleSearch}
+                    onChangeText={setSearch}
                     style={{
                         width: "100%",  // Full width
                         padding: 10,
@@ -86,35 +50,22 @@ export default function Home() {
                         backgroundColor: "#fff",
                     }}
                 />
-            </TouchableOpacity>
+            </View>
             <View style={styles.container}>
-                {!searching ?
-                    (myConversations.map((item, idx) => (
-                        <TouchableOpacity
-                            key={idx}
-                            style={styles.messageContainer}
-                            onPress={() => router.push(`../messages/${item.sender_id === myId ? item.receiver_id : item.sender_id}`)}
-                        >
-                            <View style={styles.profile}></View>
-                            <View style={styles.messageDetails}>
-                                <Text style={styles.senderText}>{data.find((d) => (d.receiver_id === myId))?.username}</Text>
-                                <Text style={styles.messageText}>{data.find((d) => (d.sender_id === myId) || (d.receiver_id === myId))?.message}</Text>
-                            </View>
+                {myConversations.map((item, idx) => (
+                    <TouchableOpacity
+                        key={idx}
+                        style={styles.messageContainer}
+                        onPress={() => router.push(`../messages/${item.sender_id === myId ? item.receiver_id : item.sender_id}`)}
+                    >
+                        <View style={styles.profile}></View>
+                        <View style={styles.messageDetails}>
+                            <Text style={styles.senderText}>{data.find((d) => (d.receiver_id === myId))?.username}</Text>
+                            <Text style={styles.messageText}>{data.find((d) => (d.sender_id === myId) || (d.receiver_id === myId))?.message}</Text>
+                        </View>
 
-                        </TouchableOpacity>
-                    ))) : (filteredUsers.map((item, idx) => (
-                        <TouchableOpacity
-                            key={idx}
-                            style={styles.messageContainer}
-                            onPress={() => router.push(`../messages/${item.id}`)}
-                        >
-                            <View style={styles.profile}></View>
-                            <View style={styles.messageDetails}>
-                                <Text style={styles.senderText}>{item.username}</Text>
-                            </View>
-
-                        </TouchableOpacity>
-                    )))}
+                    </TouchableOpacity>
+                ))}
             </View>
         </>
 

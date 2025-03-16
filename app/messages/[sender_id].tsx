@@ -4,13 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation } from 'expo-router';
 import { Dimensions } from 'react-native';
+import { Message } from '@/types';
 
 export default function Messages() {
 
     const myId = '1';
-
     const { sender_id } = useLocalSearchParams();
-    const [messages, setMessages] = useState([
+    const [messages, setMessages] = useState<Message[]>([
         { id: '1', sender_id: '1', receiver_id: '2', username: 'John Doe', message: 'Hello, how are you?' },
         { id: '2', sender_id: '2', receiver_id: '1', username: 'John Doe', message: 'Hello, how are you2?' },
         { id: '3', sender_id: '2', receiver_id: '1', username: 'John Doe', message: 'Hello, how are you3?' },
@@ -19,8 +19,7 @@ export default function Messages() {
         { id: '6', sender_id: '3', receiver_id: '2', username: 'JohnDoe3', message: 'Hello, how are you6?' },
         { id: '7', sender_id: '4', receiver_id: '2', username: 'JohnDoe4', message: 'Hello, how are you7?' }
     ]);
-    const [message, setMessage] = useState('');
-
+    const [message, setMessage] = useState<string>('');
     const router = useRouter();
     const navigation = useNavigation();
 
@@ -89,7 +88,7 @@ const styles = StyleSheet.create({
     },
     theirMessage: {
         alignSelf: 'flex-start',
-        backgroundColor: '#ddd',
+        backgroundColor: '#a5a5a5',
     },
     messageText: { color: '#fff', fontSize: 16 },
     inputContainer: {

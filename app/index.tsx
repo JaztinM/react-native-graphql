@@ -7,8 +7,8 @@ import Register from './register';
 import Login from './login';
 
 export default function Index() {
-    const [isLoading, setIsLoading] = useState(true);
-    const [componentType, setComponentType] = useState('Login');
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [componentType, setComponentType] = useState<string>('Login');
 
     useEffect(() => {
         const checkAuth = async () => {
