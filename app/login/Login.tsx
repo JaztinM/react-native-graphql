@@ -28,6 +28,7 @@ export default function Login({ setComponentType }: { setComponentType: (type: s
             }
 
             await AsyncStorage.setItem('token', 'dummy-token');
+            await AsyncStorage.setItem('username', email);
             router.replace('/home');
         } else {
             alert('Please fill in both fields');

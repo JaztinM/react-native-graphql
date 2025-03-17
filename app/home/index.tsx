@@ -1,19 +1,20 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { useState, useEffect, useLayoutEffect, useMemo } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Avatar } from 'react-native-elements';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { router } from 'expo-router';
 import { useNavigation } from 'expo-router';
-import { Ionicons } from "@expo/vector-icons";
-import { Message, User } from '@/types';
+import { User } from '@/types';
 import { useAuthCheck } from '@/utils/authUtil';
 import { useQuery, useSubscription } from '@apollo/client';
 import { GET_MESSAGES, MESSAGE_SUBSCRIPTION } from '@/utils/graphqlQueries';
+import Search from '../../components/Search';
 import styles from './home.styles';
+import { getMyId } from '@/utils/getMyId';
 
 export default function Home() {
 
     const { isAuthenticated, isLoading } = useAuthCheck();
+    const navigation = useNavigation();
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -21,60 +22,76 @@ export default function Home() {
         }
     }, [isLoading, isAuthenticated]);
 
-    const myId = '1';
-    const userId = '2';
-    const navigation = useNavigation();
+    const [myId, setMyId] = useState<string | null>(null);
 
-    const [users, setUsers] = useState([{ id: '1', username: 'John Doe' }, { id: '2', username: 'John Doe2' }, { id: '3', username: 'John Doe3' }, { id: '4', username: 'John Doe4' }]);
+    useEffect(() => {
+        getMyId().then(setMyId);
+    }, []);
+
+
+    const users = [{ id: '1', username: 'User 1' }, { id: '2', username: 'User 2' }, { id: '3', username: 'User 3' }, { id: '11', username: 'User 11' }].filter(user => user.id !== myId);
     const [search, setSearch] = useState("");
     const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
     const [searching, setSearching] = useState<boolean>(false);
-
     const [newMessages, setNewMessages] = useState<string[]>([]);
 
-    const { data: userMessages, loading: userLoading, error: userError } = useQuery(GET_MESSAGES, { variables: { sender_Id: userId, receiver_Id: myId } });
-    const { data: myMessages, loading: myLoading, error: myError } = useQuery(GET_MESSAGES, { variables: { sender_Id: myId, receiver_Id: userId } });
+    const possibleUsers = [1, 2, 11]; // Example list of known userIds
 
+    const userQueries = possibleUsers.map(userId =>
+        useQuery(GET_MESSAGES, { variables: { sender_Id: userId, receiver_Id: myId }, skip: !myId })
+    );
+
+    const myQueries = possibleUsers.map(userId =>
+        useQuery(GET_MESSAGES, { variables: { sender_Id: myId, receiver_Id: userId }, skip: !myId })
+    );
+
+    const messagesByUser = useMemo(() => {
+        return [
+            ...userQueries.flatMap(({ data }) => data?.messages || []),
+            ...myQueries.flatMap(({ data }) => data?.messages || [])
+        ];
+    }, [userQueries, myQueries]);
 
     const MAX_RETRIES = 3;
     let retryCount = 0;
-    const { data: newMessageSubscriptionData, restart } = useSubscription(MESSAGE_SUBSCRIPTION, {
-        variables: { receiverId: myId },
-        onData({ client, data }) {
-            const newMessage = data.data.newMessage;
 
-            // Update the query where `userId` is the sender and `myId` is the receiver
-            client.cache.updateQuery(
-                { query: GET_MESSAGES, variables: { sender_Id: userId, receiver_Id: myId } },
-                (existingData) => ({
-                    messages: [...(existingData?.messages || []), newMessage]
-                })
-            );
+    const restartFunctions = useRef(new Map()); // Store restart() functions per user
 
-            setNewMessages([...newMessages, newMessage.sender_id])
-            restart();
-        },
-        onError(error) {
-            console.error("Subscription error:", error);
-            if (retryCount < MAX_RETRIES) {
-                retryCount++;
-                console.log(`Retrying subscription... Attempt ${retryCount}`);
-                restart(); // Restart the subscription
-            } else {
-                console.error("Max retries reached. Stopping further attempts.");
+    possibleUsers.forEach(userId => {
+        const { restart } = useSubscription(MESSAGE_SUBSCRIPTION, {
+            variables: { receiverId: myId, senderId: userId },
+            skip: !myId,
+            onData({ client, data }) {
+                const newMessage = data.data.newMessage;
+
+                client.cache.updateQuery(
+                    { query: GET_MESSAGES, variables: { sender_Id: userId, receiver_Id: myId } },
+                    (existingData) => ({
+                        messages: [...(existingData?.messages || []), newMessage]
+                    })
+                );
+
+                setNewMessages(prev => [...prev, newMessage.sender_id]);
+
+                restartFunctions.current.set(userId, restart); // Store restart function
+                restart(); // Restart subscription immediately
+            },
+            onError(error) {
+                console.error(`Subscription error for user ${userId}:`, error);
+
+                if (restartFunctions.current.has(userId)) {
+                    console.log(`Restarting subscription for user ${userId}...`);
+                    restartFunctions.current.get(userId)(); // Restart only this user's subscription
+                }
             }
-        }
+        });
     });
 
     const messages = useMemo(() => {
-        const mergedMessages = [
-            ...(userMessages?.messages || []),
-            ...(myMessages?.messages || [])
-        ];
+        return messagesByUser.sort((a, b) => b.id - a.id); // Sort by newest first
+    }, [messagesByUser]);
 
-        return mergedMessages.sort((a, b) => b.id - a.id);
-    }, [userMessages, myMessages]);
-
+    // Step 1: Get unique conversations
     const uniqueConversations = Array.from(
         new Set(messages.map(m => [m.sender_id, m.receiver_id].sort().join('-')))
     ).map(key => {
@@ -82,9 +99,27 @@ export default function Home() {
         return { sender_id, receiver_id };
     });
 
-    // Filter conversations where myId is involved
-    const myConversations = uniqueConversations.filter(
-        convo => convo.sender_id === myId || convo.receiver_id === myId
+    // Step 2: Get the latest message for each conversation
+    const latestMessagesMap = new Map();
+
+    messages.forEach(msg => {
+        const key = [msg.sender_id, msg.receiver_id].sort().join('-');
+
+        // If no message stored yet or this one is newer, update it
+        if (!latestMessagesMap.has(key) || msg.id > latestMessagesMap.get(key).id) {
+            latestMessagesMap.set(key, msg);
+        }
+    });
+
+    // Convert to an array
+    const latestMessages = uniqueConversations.map(convo => {
+        const key = [convo.sender_id, convo.receiver_id].sort().join('-');
+        return latestMessagesMap.get(key);
+    });
+
+    // Filter only conversations where myId is involved
+    const myConversations = latestMessages.filter(
+        msg => msg && (msg.sender_id === myId || msg.receiver_id === myId)
     );
 
     useLayoutEffect(() => {
@@ -112,35 +147,17 @@ export default function Home() {
         }
     };
 
-    if (isLoading) {
-        return null; // Show nothing while checking auth
+    if (isLoading || !myId) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#007AFF" />
+            </View>
+        );
     }
 
     return (
         <>
-            <TouchableOpacity style={styles.searchContainer} onPress={searchClicked}  >
-                {
-                    searching ?
-                        <TouchableOpacity onPress={backSearchClicked} style={{ padding: 10, paddingLeft: 0 }}>
-                            <Ionicons name="arrow-back" size={24} color="black" />
-                        </TouchableOpacity> : null
-                }
-
-                <TextInput
-                    placeholder="Search User"
-                    value={search}
-                    onChangeText={handleSearch}
-                    style={{
-                        width: "100%",  // Full width
-                        padding: 10,
-                        borderWidth: 1,
-                        borderColor: "#ccc",
-                        borderRadius: 8,
-                        fontSize: 14,
-                        backgroundColor: "#fff",
-                    }}
-                />
-            </TouchableOpacity>
+            <Search search={search} searchClicked={searchClicked} handleSearch={handleSearch} searching={searching} backSearchClicked={backSearchClicked} />
             <View style={styles.container}>
                 {!searching ?
                     (myConversations.map((item, idx) => (
@@ -152,10 +169,17 @@ export default function Home() {
                                 router.push(`../messages/${item.sender_id === myId ? item.receiver_id : item.sender_id}`);
                             }}
                         >
-                            <View style={styles.profile}></View>
+                            <Avatar
+                                size={45}
+                                rounded
+                                title={item.receiver_id}  // First letter of username
+                                containerStyle={{ backgroundColor: "#ccc" }}
+                            />
                             <View style={styles.messageDetails}>
-                                <Text style={styles.senderText}>User {messages.find((d) => (d.receiver_id === myId))?.sender_id || messages.find((d) => (d.sender_id === myId))?.receiver_id}</Text>
-                                <Text style={styles.messageText}>{messages.find((d) => (d.sender_id === myId) || (d.receiver_id === myId))?.message}</Text>
+                                <Text style={styles.senderText}>
+                                    {`User ${item.sender_id == myId ? item.receiver_id : item.sender_id}`}
+                                </Text>
+                                <Text style={styles.messageText}>{item.message}</Text> {/* Latest message */}
                             </View>
 
                         </TouchableOpacity>
@@ -165,7 +189,12 @@ export default function Home() {
                             style={styles.messageContainer}
                             onPress={() => router.push(`../messages/${item.id}`)}
                         >
-                            <View style={styles.profile}></View>
+                            <Avatar
+                                size={45}
+                                rounded
+                                title={item.id}  // First letter of username
+                                containerStyle={{ backgroundColor: "#ccc" }}
+                            />
                             <View style={styles.messageDetails}>
                                 <Text style={styles.senderText}>{item.username}</Text>
                             </View>

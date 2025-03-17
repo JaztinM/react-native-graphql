@@ -1,18 +1,18 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useState, useEffect, useMemo } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation } from 'expo-router';
-import { Dimensions } from 'react-native';
-import { Message } from '@/types';
 import { useAuthCheck } from '@/utils/authUtil';
-import { useQuery, useMutation, useSubscription } from '@apollo/client';
-import { GET_MESSAGES, SEND_MESSAGE, MESSAGE_SUBSCRIPTION } from '@/utils/graphqlQueries';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_MESSAGES, SEND_MESSAGE } from '@/utils/graphqlQueries';
 import styles from './messages.styles';
+import { getMyId } from '@/utils/getMyId';
+import { Message } from '@/types';
 
 export default function Messages() {
 
     const { isAuthenticated, isLoading } = useAuthCheck();
+    const { userId } = useLocalSearchParams();
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -20,20 +20,40 @@ export default function Messages() {
         }
     }, [isLoading, isAuthenticated]);
 
-    const myId = '1';
-    const { userId } = useLocalSearchParams();
 
-    const { data: userMessages, loading: userLoading, error: userError } = useQuery(GET_MESSAGES, { variables: { sender_Id: userId, receiver_Id: myId } });
-    const { data: myMessages, loading: myLoading, error: myError } = useQuery(GET_MESSAGES, { variables: { sender_Id: myId, receiver_Id: userId } });
-    const [onSendMessage, { data: sendMessageData, loading: sendMessageLoading, error: sendMessageError }] = useMutation(SEND_MESSAGE, {
+    const [myId, setMyId] = useState<string | null>(null);
+    useEffect(() => {
+        getMyId().then(setMyId);
+    }, []);
+
+
+    const { data: userMessages, loading: userLoading, refetch: refetchUserMessages } = useQuery(GET_MESSAGES, { variables: { sender_Id: userId, receiver_Id: myId }, skip: !myId });
+    const { data: myMessages, loading: myLoading, refetch: refetchMyMessages } = useQuery(GET_MESSAGES, { variables: { sender_Id: myId, receiver_Id: userId }, skip: !myId });
+    const [users, setUsers] = useState([{ id: '1', username: 'User 1' }, { id: '2', username: 'User 2' }, { id: '3', username: 'User 3' }, { id: '8', username: 'User 8' }]);
+
+    const possibleUsers = [1, 2, 11];
+    const [onSendMessage, { loading: sendMessageLoading }] = useMutation(SEND_MESSAGE, {
         update(cache, { data: { sendMessage } }) {
-            // Only update the query where `myId` is the sender
-            cache.updateQuery(
-                { query: GET_MESSAGES, variables: { sender_Id: myId, receiver_Id: userId } },
-                (existingData) => ({
-                    messages: [...(existingData?.messages || []), sendMessage],
-                })
-            );
+            if (!sendMessage) return;
+            possibleUsers.forEach(userId => {
+                cache.updateQuery(
+                    { query: GET_MESSAGES, variables: { sender_Id: userId, receiver_Id: myId } },
+                    (existingData) => ({
+                        messages: [...(existingData?.messages || []), sendMessage],
+                    })
+                );
+
+                cache.updateQuery(
+                    { query: GET_MESSAGES, variables: { sender_Id: myId, receiver_Id: userId } },
+                    (existingData) => ({
+                        messages: [...(existingData?.messages || []), sendMessage],
+                    })
+                );
+            });
+        },
+        onCompleted: () => {
+            refetchUserMessages();
+            refetchMyMessages();
         }
     });
 
@@ -51,14 +71,11 @@ export default function Messages() {
     const navigation = useNavigation();
 
     useEffect(() => {
-
-        if (userId && !userLoading && !myLoading) {
-            navigation.setOptions({ title: `Messages with ${userId}`, headerShown: true });
-        } else {
-            navigation.setOptions({ title: "Loading...", headerShown: true });
-        }
-
-    }, [navigation, userId, userLoading, myLoading]);
+        navigation.setOptions({
+            title: userId ? `User ${userId}` : "Loading...",
+            headerShown: true
+        });
+    }, [userId, navigation]);
 
     const sendMessage = () => {
         if (!message.trim()) return;
@@ -72,8 +89,13 @@ export default function Messages() {
         });
     };
 
-    if (isLoading || userLoading || myLoading) {
-        return null; // Show nothing while checking auth
+
+    if (isLoading || userLoading || myLoading || !myId) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#007AFF" />
+            </View>
+        );
     }
 
     return (

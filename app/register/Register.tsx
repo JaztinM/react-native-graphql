@@ -7,21 +7,19 @@ import { CREATE_USER } from '@/utils/graphqlQueries';
 import { useMutation } from '@apollo/client';
 import styles from './register.styles';
 export default function Register({ setComponentType }: { setComponentType: (type: string) => void }) {
-    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [username, setUsername] = useState('');
 
     const [createUser, { data, loading, error }] = useMutation(CREATE_USER);
 
     const handleRegister = async () => {
-        if (email && password && username) {
+        if (password && username) {
             try {
                 const { data } = await createUser({
                     variables: {
                         username: username,
                     }
                 })
-
                 alert(`User created successfully ${data}`);
             } catch (e) {
                 alert(e);
@@ -41,13 +39,6 @@ export default function Register({ setComponentType }: { setComponentType: (type
                     placeholder="Username"
                     value={username}
                     onChangeText={setUsername}
-                    autoCapitalize="none"
-                />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Email"
-                    value={email}
-                    onChangeText={setEmail}
                     autoCapitalize="none"
                 />
                 <TextInput
