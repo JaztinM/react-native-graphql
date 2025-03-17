@@ -19,8 +19,8 @@ export const GET_USERS = gql`
 `;
 
 export const GET_MESSAGES = gql`
-  query Messages($senderId: Int!, $receiverId: Int!) {
-    messages(sender_id: $senderId, receiver_id: $receiverId) {
+  query Messages($sender_Id: ID!, $receiver_Id: ID!) {
+    messages(sender_id: $sender_Id, receiver_id: $receiver_Id) {
       id
       sender_id
       receiver_id
@@ -30,7 +30,7 @@ export const GET_MESSAGES = gql`
 `;
 
 export const SEND_MESSAGE = gql`
-  mutation SendMessage($senderId: Int!, $receiverId: Int!, $message: String!) {
+  mutation SendMessage($senderId: ID!, $receiverId: ID!, $message: String!) {
     sendMessage(sender_id: $senderId, receiver_id: $receiverId, message: $message) {
       id
       sender_id
@@ -41,7 +41,7 @@ export const SEND_MESSAGE = gql`
 `;
 
 export const MESSAGE_SUBSCRIPTION = gql`
-  subscription NewMessage($receiverId: Int!) {
+  subscription NewMessage($receiverId: ID!) {
     newMessage(receiver_id: $receiverId) {
       id
       sender_id

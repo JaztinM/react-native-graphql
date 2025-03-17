@@ -1,5 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { router } from 'expo-router';
@@ -7,6 +7,10 @@ import { useNavigation } from 'expo-router';
 import { Ionicons } from "@expo/vector-icons";
 import { Message, User } from '@/types';
 import { useAuthCheck } from '@/utils/authUtil';
+import { useQuery, useSubscription } from '@apollo/client';
+import { GET_MESSAGES, MESSAGE_SUBSCRIPTION } from '@/utils/graphqlQueries';
+import styles from './home.styles';
+
 export default function Home() {
 
     const { isAuthenticated, isLoading } = useAuthCheck();
@@ -18,24 +22,61 @@ export default function Home() {
     }, [isLoading, isAuthenticated]);
 
     const myId = '1';
+    const userId = '2';
     const navigation = useNavigation();
 
     const [users, setUsers] = useState([{ id: '1', username: 'John Doe' }, { id: '2', username: 'John Doe2' }, { id: '3', username: 'John Doe3' }, { id: '4', username: 'John Doe4' }]);
     const [search, setSearch] = useState("");
     const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
     const [searching, setSearching] = useState<boolean>(false);
-    const [data, setData] = useState<Message[]>([
-        { id: '1', sender_id: '1', receiver_id: '2', username: 'John Doe', message: 'Hello, how are you?' },
-        { id: '2', sender_id: '2', receiver_id: '1', username: 'John Doe', message: 'Hello, how are you2?' },
-        { id: '3', sender_id: '2', receiver_id: '1', username: 'John Doe', message: 'Hello, how are you3?' },
-        { id: '4', sender_id: '2', receiver_id: '1', username: 'John Doe', message: 'Hello, how are you4?' },
-        { id: '5', sender_id: '2', receiver_id: '1', username: 'JohnDoe2', message: 'Hello, how are you5?' },
-        { id: '6', sender_id: '3', receiver_id: '2', username: 'JohnDoe3', message: 'Hello, how are you6?' },
-        { id: '7', sender_id: '4', receiver_id: '2', username: 'JohnDoe4', message: 'Hello, how are you7?' }
-    ]);
+
+    const [newMessages, setNewMessages] = useState<string[]>([]);
+
+    const { data: userMessages, loading: userLoading, error: userError } = useQuery(GET_MESSAGES, { variables: { sender_Id: userId, receiver_Id: myId } });
+    const { data: myMessages, loading: myLoading, error: myError } = useQuery(GET_MESSAGES, { variables: { sender_Id: myId, receiver_Id: userId } });
+
+
+    const MAX_RETRIES = 3;
+    let retryCount = 0;
+    const { data: newMessageSubscriptionData, restart } = useSubscription(MESSAGE_SUBSCRIPTION, {
+        variables: { receiverId: myId },
+        onData({ client, data }) {
+            const newMessage = data.data.newMessage;
+
+            // Update the query where `userId` is the sender and `myId` is the receiver
+            client.cache.updateQuery(
+                { query: GET_MESSAGES, variables: { sender_Id: userId, receiver_Id: myId } },
+                (existingData) => ({
+                    messages: [...(existingData?.messages || []), newMessage]
+                })
+            );
+
+            setNewMessages([...newMessages, newMessage.sender_id])
+            restart();
+        },
+        onError(error) {
+            console.error("Subscription error:", error);
+            if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                console.log(`Retrying subscription... Attempt ${retryCount}`);
+                restart(); // Restart the subscription
+            } else {
+                console.error("Max retries reached. Stopping further attempts.");
+            }
+        }
+    });
+
+    const messages = useMemo(() => {
+        const mergedMessages = [
+            ...(userMessages?.messages || []),
+            ...(myMessages?.messages || [])
+        ];
+
+        return mergedMessages.sort((a, b) => b.id - a.id);
+    }, [userMessages, myMessages]);
 
     const uniqueConversations = Array.from(
-        new Set(data.map(m => [m.sender_id, m.receiver_id].sort().join('-')))
+        new Set(messages.map(m => [m.sender_id, m.receiver_id].sort().join('-')))
     ).map(key => {
         const [sender_id, receiver_id] = key.split('-');
         return { sender_id, receiver_id };
@@ -105,13 +146,16 @@ export default function Home() {
                     (myConversations.map((item, idx) => (
                         <TouchableOpacity
                             key={idx}
-                            style={styles.messageContainer}
-                            onPress={() => router.push(`../messages/${item.sender_id === myId ? item.receiver_id : item.sender_id}`)}
+                            style={{ ...styles.messageContainer, backgroundColor: newMessages.includes(item.sender_id) || newMessages.includes(item.receiver_id) ? "#e1e1e1" : 'white' }}
+                            onPress={() => {
+                                setNewMessages(newMessages.filter((d) => d !== item.sender_id && d !== item.receiver_id))
+                                router.push(`../messages/${item.sender_id === myId ? item.receiver_id : item.sender_id}`);
+                            }}
                         >
                             <View style={styles.profile}></View>
                             <View style={styles.messageDetails}>
-                                <Text style={styles.senderText}>{data.find((d) => (d.receiver_id === myId))?.username}</Text>
-                                <Text style={styles.messageText}>{data.find((d) => (d.sender_id === myId) || (d.receiver_id === myId))?.message}</Text>
+                                <Text style={styles.senderText}>User {messages.find((d) => (d.receiver_id === myId))?.sender_id || messages.find((d) => (d.sender_id === myId))?.receiver_id}</Text>
+                                <Text style={styles.messageText}>{messages.find((d) => (d.sender_id === myId) || (d.receiver_id === myId))?.message}</Text>
                             </View>
 
                         </TouchableOpacity>
@@ -133,13 +177,3 @@ export default function Home() {
 
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, justifyContent: 'flex-start', alignItems: 'flex-start', padding: 10, display: 'flex', gap: 10, flexDirection: 'column', overflow: 'scroll' },
-    messageContainer: { justifyContent: 'flex-start', alignItems: 'center', padding: 10, height: 100, width: '100%', flexDirection: 'row', display: 'flex', backgroundColor: 'white', borderRadius: 10, gap: 10 },
-    senderText: { fontWeight: 'bold', fontSize: 16 },
-    messageDetails: { display: 'flex', flexDirection: 'column', gap: 3 },
-    messageText: { fontSize: 14, color: '#555' },
-    profile: { borderRadius: '50%', width: 50, height: 50, backgroundColor: '#ccc' },
-    searchContainer: { display: 'flex', flexDirection: 'row', backgroundColor: 'white', padding: 10 }
-});

@@ -3,12 +3,30 @@ import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useNavigation } from 'expo-router';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
+import { GET_USERS, CREATE_USER } from '@/utils/graphqlQueries';
+import styles from './login.styles';
+
+
 export default function Login({ setComponentType }: { setComponentType: (type: string) => void }) {
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const { data: userData, loading, error } = useQuery(GET_USERS);
+    const [login, { data: loginData }] = useMutation(CREATE_USER);
 
     const handleLogin = async () => {
         if (email && password) {
+            try {
+                await login({
+                    variables: {
+                        username: email,
+                    }
+                });
+            } catch (e) {
+                alert(e);
+            }
+
             await AsyncStorage.setItem('token', 'dummy-token');
             router.replace('/home');
         } else {
@@ -48,50 +66,3 @@ export default function Login({ setComponentType }: { setComponentType: (type: s
 
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        maxWidth: 320,
-        alignSelf: 'center',
-        width: '100%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        elevation: 5,
-    },
-    title: { fontSize: 24, marginBottom: 30, fontWeight: '600' },
-    register: { fontSize: 12, alignSelf: 'flex-start', marginTop: -7, marginLeft: 2 },
-    registerLink: {
-        color: 'blue',
-        textDecorationLine: 'underline',
-    },
-    input: {
-        width: '100%',
-        height: 50,
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        marginBottom: 15,
-        fontSize: 16,
-        maxWidth: 300
-    },
-    button: {
-        width: '100%',
-        backgroundColor: '#007AFF',
-        padding: 15,
-        borderRadius: 8,
-        marginTop: 20,
-        maxWidth: 300
-    },
-    buttonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '600',
-        textAlign: 'center'
-    },
-});
