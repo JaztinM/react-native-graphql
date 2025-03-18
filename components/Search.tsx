@@ -6,7 +6,7 @@ import { StyleSheet } from 'react-native';
 export default function Search({ search, searchClicked, handleSearch, searching, backSearchClicked }: { search: string, searchClicked: () => void, handleSearch: (text: string) => void, searching: boolean, backSearchClicked: () => void }) {
 
     return (
-        <TouchableOpacity style={styles.searchContainer}  >
+        <View style={styles.searchContainer}  >
             {
                 searching ?
                     <TouchableOpacity onPress={backSearchClicked} style={{ padding: 10, paddingLeft: 0 }}>
@@ -29,7 +29,7 @@ export default function Search({ search, searchClicked, handleSearch, searching,
                     backgroundColor: "#fff",
                 }}
             />
-        </TouchableOpacity>
+        </View>
     );
 }
 

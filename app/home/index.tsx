@@ -1,5 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Avatar } from 'react-native-elements';
+import { Icon } from "react-native-elements";
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { router } from 'expo-router';
 import { useNavigation } from 'expo-router';
@@ -10,6 +11,8 @@ import { GET_MESSAGES, MESSAGE_SUBSCRIPTION } from '@/utils/graphqlQueries';
 import Search from '../../components/Search';
 import styles from './home.styles';
 import { getMyId } from '@/utils/getMyId';
+import { Message } from '@/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Home() {
 
@@ -22,20 +25,24 @@ export default function Home() {
         }
     }, [isLoading, isAuthenticated]);
 
-    const [myId, setMyId] = useState<string | null>(null);
 
+    const [myId, setMyId] = useState<string | null>(null);
     useEffect(() => {
         getMyId().then(setMyId);
     }, []);
 
 
-    const users = [{ id: '1', username: 'User 1' }, { id: '2', username: 'User 2' }, { id: '3', username: 'User 3' }, { id: '11', username: 'User 11' }].filter(user => user.id !== myId);
+    //users variable is for the list of searchable users currently hardcoded because api doesnt work for creating users
+    // possibleUsers id exluding the current userId that messaged will be fetched, currently hardcoded also
+
+    const possibleUsers = ['2', '12', '11', '3'];
+    const users = possibleUsers.map(userId => ({ id: userId, username: `User ${userId}` }));
+
     const [search, setSearch] = useState("");
     const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
     const [searching, setSearching] = useState<boolean>(false);
-    const [newMessages, setNewMessages] = useState<string[]>([]);
-
-    const possibleUsers = [1, 2, 11]; // Example list of known userIds
+    const [newMessages, setNewMessages] = useState<Message[]>([]);
+    const [highlightedNewMessages, setHighlightedNewMessages] = useState<string[]>([]);
 
     const userQueries = possibleUsers.map(userId =>
         useQuery(GET_MESSAGES, { variables: { sender_Id: userId, receiver_Id: myId }, skip: !myId })
@@ -45,53 +52,49 @@ export default function Home() {
         useQuery(GET_MESSAGES, { variables: { sender_Id: myId, receiver_Id: userId }, skip: !myId })
     );
 
-    const messagesByUser = useMemo(() => {
+    const messagesByUser: Message[] = useMemo(() => {
         return [
             ...userQueries.flatMap(({ data }) => data?.messages || []),
-            ...myQueries.flatMap(({ data }) => data?.messages || [])
+            ...myQueries.flatMap(({ data }) => data?.messages || []),
+            ...newMessages
         ];
-    }, [userQueries, myQueries]);
+    }, [userQueries, myQueries, newMessages]);
 
-    const MAX_RETRIES = 3;
-    let retryCount = 0;
+    const maxRetrys = 5;
+    const retryCount = useRef(0);
 
-    const restartFunctions = useRef(new Map()); // Store restart() functions per user
+    const { restart } = useSubscription(MESSAGE_SUBSCRIPTION, {
+        variables: { receiverId: myId }, skip: !myId,
+        onData({ client, data }) {
+            const newMessage = data.data.newMessage;
 
-    possibleUsers.forEach(userId => {
-        const { restart } = useSubscription(MESSAGE_SUBSCRIPTION, {
-            variables: { receiverId: myId, senderId: userId },
-            skip: !myId,
-            onData({ client, data }) {
-                const newMessage = data.data.newMessage;
+            // Update the query where `userId` is the sender and `myId` is the receiver
+            client.cache.updateQuery(
+                { query: GET_MESSAGES, variables: { sender_Id: newMessage.sender_id, receiver_Id: myId } },
+                (existingData) => ({
+                    messages: [...(existingData?.messages || []), newMessage]
+                })
+            );
 
-                client.cache.updateQuery(
-                    { query: GET_MESSAGES, variables: { sender_Id: userId, receiver_Id: myId } },
-                    (existingData) => ({
-                        messages: [...(existingData?.messages || []), newMessage]
-                    })
-                );
-
-                setNewMessages(prev => [...prev, newMessage.sender_id]);
-
-                restartFunctions.current.set(userId, restart); // Store restart function
-                restart(); // Restart subscription immediately
-            },
-            onError(error) {
-                console.error(`Subscription error for user ${userId}:`, error);
-
-                if (restartFunctions.current.has(userId)) {
-                    console.log(`Restarting subscription for user ${userId}...`);
-                    restartFunctions.current.get(userId)(); // Restart only this user's subscription
-                }
-            }
-        });
+            setNewMessages([...newMessages, newMessage])
+            setHighlightedNewMessages([...highlightedNewMessages, newMessage.sender_id]);
+            retryCount.current = 0;
+            restart();
+        },
+        onError(error) {
+            if (retryCount.current >= maxRetrys) return;
+            retryCount.current++; // Increment retry count without resetting on re-renders
+            console.log(`Retrying... Attempt ${retryCount.current}`);
+            console.log(error);
+            restart();
+        }
     });
 
     const messages = useMemo(() => {
-        return messagesByUser.sort((a, b) => b.id - a.id); // Sort by newest first
-    }, [messagesByUser]);
+        return messagesByUser.sort((a, b) => Number(b.id) - Number(a.id)); // Ensure numeric comparison
+    }, [messagesByUser, newMessages]);
 
-    // Step 1: Get unique conversations
+
     const uniqueConversations = Array.from(
         new Set(messages.map(m => [m.sender_id, m.receiver_id].sort().join('-')))
     ).map(key => {
@@ -99,35 +102,52 @@ export default function Home() {
         return { sender_id, receiver_id };
     });
 
-    // Step 2: Get the latest message for each conversation
-    const latestMessagesMap = new Map();
 
-    messages.forEach(msg => {
-        const key = [msg.sender_id, msg.receiver_id].sort().join('-');
-
-        // If no message stored yet or this one is newer, update it
-        if (!latestMessagesMap.has(key) || msg.id > latestMessagesMap.get(key).id) {
-            latestMessagesMap.set(key, msg);
-        }
-    });
-
-    // Convert to an array
-    const latestMessages = uniqueConversations.map(convo => {
-        const key = [convo.sender_id, convo.receiver_id].sort().join('-');
-        return latestMessagesMap.get(key);
-    });
-
-    // Filter only conversations where myId is involved
-    const myConversations = latestMessages.filter(
-        msg => msg && (msg.sender_id === myId || msg.receiver_id === myId)
+    // Filter conversations where myId is involved
+    const myConversations = uniqueConversations.filter(
+        convo => convo.sender_id === myId || convo.receiver_id === myId
     );
 
+
+    const conversationsWithLatestMessage = myConversations.map(convo => {
+        const conversationMessages = messages.filter(
+            msg =>
+                (msg.sender_id === convo.sender_id && msg.receiver_id === convo.receiver_id) ||
+                (msg.sender_id === convo.receiver_id && msg.receiver_id === convo.sender_id)
+        );
+
+        // Get the latest message for this conversation
+        const latestMessage = conversationMessages.length > 0 ? conversationMessages[0] : null;
+
+        return {
+            ...convo,
+            message: latestMessage?.message || "No messages yet", // Ensures valid text
+        };
+    });
+
     useLayoutEffect(() => {
-        navigation.setOptions({ title: "Home Page", headerShown: !searching });
-    }, [searching]);
+        navigation.setOptions({
+            title: "Home Page",
+            headerShown: !searching,
+            headerRight: () => (
+                <TouchableOpacity
+                    style={{ marginRight: 10 }}
+                    onPress={() => {
+                        AsyncStorage.removeItem("token");
+                        AsyncStorage.removeItem("username");
+                        router.replace("/");
+                    }}
+                >
+                    <Icon name="logout" type="material" size={24} color="black" />
+                </TouchableOpacity>
+            ),
+        });
+    }, [searching, navigation]);
 
     const searchClicked = () => {
-        setSearching(true);
+        if (!searching) {
+            setSearching(true);
+        }
     };
 
     const backSearchClicked = () => {
@@ -160,26 +180,28 @@ export default function Home() {
             <Search search={search} searchClicked={searchClicked} handleSearch={handleSearch} searching={searching} backSearchClicked={backSearchClicked} />
             <View style={styles.container}>
                 {!searching ?
-                    (myConversations.map((item, idx) => (
+                    (conversationsWithLatestMessage.map((item, idx) => (
                         <TouchableOpacity
                             key={idx}
-                            style={{ ...styles.messageContainer, backgroundColor: newMessages.includes(item.sender_id) || newMessages.includes(item.receiver_id) ? "#e1e1e1" : 'white' }}
+                            style={{ ...styles.messageContainer, backgroundColor: highlightedNewMessages.includes(item.sender_id) || highlightedNewMessages.includes(item.receiver_id) ? "#e1e1e1" : 'white' }}
                             onPress={() => {
-                                setNewMessages(newMessages.filter((d) => d !== item.sender_id && d !== item.receiver_id))
+                                setHighlightedNewMessages(highlightedNewMessages.filter((d) => d !== item.sender_id && d !== item.receiver_id))
                                 router.push(`../messages/${item.sender_id === myId ? item.receiver_id : item.sender_id}`);
                             }}
                         >
                             <Avatar
                                 size={45}
                                 rounded
-                                title={item.receiver_id}  // First letter of username
+                                title={`${item.sender_id == myId ? item.receiver_id : item.sender_id}`} // Ensure it's a string
                                 containerStyle={{ backgroundColor: "#ccc" }}
                             />
                             <View style={styles.messageDetails}>
                                 <Text style={styles.senderText}>
                                     {`User ${item.sender_id == myId ? item.receiver_id : item.sender_id}`}
                                 </Text>
-                                <Text style={styles.messageText}>{item.message}</Text> {/* Latest message */}
+                                <Text style={styles.messageText}>
+                                    {item.message ? item.message.toString() : "No messages yet"}
+                                </Text>
                             </View>
 
                         </TouchableOpacity>
@@ -192,7 +214,7 @@ export default function Home() {
                             <Avatar
                                 size={45}
                                 rounded
-                                title={item.id}  // First letter of username
+                                title={item.id?.toString()} // Ensure it's a string
                                 containerStyle={{ backgroundColor: "#ccc" }}
                             />
                             <View style={styles.messageDetails}>

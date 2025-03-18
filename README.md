@@ -1,50 +1,30 @@
-# Welcome to your Expo app 👋
+GraphQl Queries here use https://cors-anywhere.herokuapp.com/ as proxy server since backend doesnt allow localhost hostname
+visit https://cors-anywhere.herokuapp.com/corsdemo to make the apis work or modify apolloClient.ts in scripts and use different proxy address
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The app uses file-based routing and the folders are inside the app folder
 
-## Get started
+-_layout: contains wrappers and routing for the app
 
-1. Install dependencies
+-index.tsx is the file for rendering the index/starting page, index page consist of login/register page. Those react components are in login and register folder.
+     note: login and register api in backend is currently not working so I made some alternative code just to simulate login and and the current users of the app
 
-   ```bash
-   npm install
-   ```
+-Logging in with username '1' and random passwords will make you user with id: 1,
 
-2. Start the app
+-home: user needs to login first to go here, home displays all the messages the user has. Clicking on a message will navigate user to message screen
+    -home gets all the users that current user has messages with then gets their latest message. Subscriptions are also triggered for each user here to fetch  incoming new messages, and updates the messages for that specific user. new messages are highlighted in home.
 
-   ```bash
-    npx expo start
-   ```
+    -search bar: makes you search for user to chat, must edit the hardcoded user id also in home to add/delete users
+    -logout button: logs you out of the app and delete the data in local storage such as the token
 
-In the output, you'll find options to open the app in a
+-messages: displays messages from and to a user, you can also send message here
+    -contains graphql query to get recent messages from and to the user, this is the same query in home so this doesnt get triggered again if its already fetched
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+other folders
+-components: has initial files after creating the boilerplate
+-scripts: contains some scripts like the graphQl apolloClient instance
+-utils: contains some utility functions like authentication function for checking if the user is logged in, and also the graphQl mutation schemas
+-types: contains interfaces/types for type checking
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+-app has token based authentication and prevents user from going to protected routes if they are not logged in, if user is logged in, they are automatically redirected to /home
 
-## Get a fresh project
 
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.

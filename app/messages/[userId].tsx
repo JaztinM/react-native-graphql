@@ -13,6 +13,8 @@ export default function Messages() {
 
     const { isAuthenticated, isLoading } = useAuthCheck();
     const { userId } = useLocalSearchParams();
+    const router = useRouter();
+    const navigation = useNavigation();
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -20,41 +22,26 @@ export default function Messages() {
         }
     }, [isLoading, isAuthenticated]);
 
-
     const [myId, setMyId] = useState<string | null>(null);
     useEffect(() => {
         getMyId().then(setMyId);
     }, []);
 
 
-    const { data: userMessages, loading: userLoading, refetch: refetchUserMessages } = useQuery(GET_MESSAGES, { variables: { sender_Id: userId, receiver_Id: myId }, skip: !myId });
-    const { data: myMessages, loading: myLoading, refetch: refetchMyMessages } = useQuery(GET_MESSAGES, { variables: { sender_Id: myId, receiver_Id: userId }, skip: !myId });
-    const [users, setUsers] = useState([{ id: '1', username: 'User 1' }, { id: '2', username: 'User 2' }, { id: '3', username: 'User 3' }, { id: '8', username: 'User 8' }]);
+    const { data: userMessages, loading: userLoading, } = useQuery(GET_MESSAGES, { variables: { sender_Id: userId, receiver_Id: myId }, skip: !myId });
+    const { data: myMessages, loading: myLoading, } = useQuery(GET_MESSAGES, { variables: { sender_Id: myId, receiver_Id: userId }, skip: !myId });
+    const [message, setMessage] = useState<string>('');
 
-    const possibleUsers = [1, 2, 11];
     const [onSendMessage, { loading: sendMessageLoading }] = useMutation(SEND_MESSAGE, {
         update(cache, { data: { sendMessage } }) {
             if (!sendMessage) return;
-            possibleUsers.forEach(userId => {
-                cache.updateQuery(
-                    { query: GET_MESSAGES, variables: { sender_Id: userId, receiver_Id: myId } },
-                    (existingData) => ({
-                        messages: [...(existingData?.messages || []), sendMessage],
-                    })
-                );
-
-                cache.updateQuery(
-                    { query: GET_MESSAGES, variables: { sender_Id: myId, receiver_Id: userId } },
-                    (existingData) => ({
-                        messages: [...(existingData?.messages || []), sendMessage],
-                    })
-                );
-            });
+            cache.updateQuery(
+                { query: GET_MESSAGES, variables: { sender_Id: myId, receiver_Id: userId } },
+                (existingData) => ({
+                    messages: [...(existingData?.messages || []), sendMessage],
+                })
+            );
         },
-        onCompleted: () => {
-            refetchUserMessages();
-            refetchMyMessages();
-        }
     });
 
     const messages = useMemo(() => {
@@ -66,9 +53,7 @@ export default function Messages() {
         return mergedMessages.sort((a, b) => b.id - a.id);
     }, [userMessages, myMessages]);
 
-    const [message, setMessage] = useState<string>('');
-    const router = useRouter();
-    const navigation = useNavigation();
+
 
     useEffect(() => {
         navigation.setOptions({
