@@ -2,7 +2,6 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { useNavigation } from 'expo-router';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { GET_USERS, CREATE_USER } from '@/utils/graphqlQueries';
 import styles from './login.styles';
@@ -41,7 +40,7 @@ export default function Login({ setComponentType }: { setComponentType: (type: s
                 <Text style={styles.title}>Login</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Email"
+                    placeholder="Username"
                     value={email}
                     onChangeText={setEmail}
                     autoCapitalize="none"

@@ -35,7 +35,7 @@ export default function Home() {
     //users variable is for the list of searchable users currently hardcoded because api doesnt work for creating users
     // possibleUsers id exluding the current userId that messaged will be fetched, currently hardcoded also
 
-    const possibleUsers = ['2', '12', '11', '3'];
+    const possibleUsers = ['1', '2', '14'];
     const users = possibleUsers.map(userId => ({ id: userId, username: `User ${userId}` }));
 
     const [search, setSearch] = useState("");
