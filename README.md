@@ -22,8 +22,9 @@ The app uses file-based routing and the folders are inside the app folder
 other folders
 -components: has initial files after creating the boilerplate
 -scripts: contains some scripts like the graphQl apolloClient instance
--utils: contains some utility functions like authentication function for checking if the user is logged in, and also the graphQl mutation schemas
+-utils: contains some utility functions like authentication function for checking if the user is logged in
 -types: contains interfaces/types for type checking
+-graphql: contains graphql mutations, subscriptions, and queries functions
 
 -app has token based authentication and prevents user from going to protected routes if they are not logged in, if user is logged in, they are automatically redirected to /home
 
