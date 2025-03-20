@@ -3,14 +3,15 @@ import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useNavigation } from 'expo-router';
-import { CREATE_USER } from '@/utils/graphqlQueries';
+import { CREATE_USER } from '../graphql/mutations';
 import { useMutation } from '@apollo/client';
 import styles from './register.styles';
+
 export default function Register({ setComponentType }: { setComponentType: (type: string) => void }) {
     const [password, setPassword] = useState('');
     const [username, setUsername] = useState('');
 
-    const [createUser, { data, loading, error }] = useMutation(CREATE_USER);
+    const [createUser, { loading }] = useMutation(CREATE_USER);
 
     const handleRegister = async () => {
         if (password && username) {
@@ -53,7 +54,7 @@ export default function Register({ setComponentType }: { setComponentType: (type
                         Already have an account?
                     </Text>
                 </Text>
-                <TouchableOpacity style={styles.button} onPress={handleRegister}>
+                <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
                     <Text style={styles.buttonText}>Sign In</Text>
                 </TouchableOpacity>
             </View>

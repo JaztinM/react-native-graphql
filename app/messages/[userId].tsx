@@ -4,7 +4,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation } from 'expo-router';
 import { useAuthCheck } from '@/utils/authUtil';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_MESSAGES, SEND_MESSAGE } from '@/utils/graphqlQueries';
+import { GET_MESSAGES } from '../graphql/queries';
+import { SEND_MESSAGE } from '../graphql/mutations';
 import styles from './messages.styles';
 import { getMyId } from '@/utils/getMyId';
 import { Message } from '@/types';
@@ -44,7 +45,7 @@ export default function Messages() {
         },
     });
 
-    const messages = useMemo(() => {
+    const messages: Message[] = useMemo(() => {
         const mergedMessages = [
             ...(userMessages?.messages || []),
             ...(myMessages?.messages || [])

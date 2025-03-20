@@ -2,8 +2,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
-import { GET_USERS, CREATE_USER } from '@/utils/graphqlQueries';
+import { useMutation } from '@apollo/client';
+import { CREATE_USER } from '../graphql/mutations';
 import styles from './login.styles';
 
 
@@ -11,8 +11,7 @@ export default function Login({ setComponentType }: { setComponentType: (type: s
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const { data: userData, loading, error } = useQuery(GET_USERS);
-    const [login, { data: loginData }] = useMutation(CREATE_USER);
+    const [login, { loading }] = useMutation(CREATE_USER);
 
     const handleLogin = async () => {
         if (email && password) {
@@ -58,7 +57,7 @@ export default function Login({ setComponentType }: { setComponentType: (type: s
                         Register Here
                     </Text>
                 </Text>
-                <TouchableOpacity style={styles.button} onPress={handleLogin}>
+                <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
                     <Text style={styles.buttonText}>Sign In</Text>
                 </TouchableOpacity>
             </View>

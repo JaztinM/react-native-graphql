@@ -7,7 +7,8 @@ import { useNavigation } from 'expo-router';
 import { User } from '@/types';
 import { useAuthCheck } from '@/utils/authUtil';
 import { useQuery, useSubscription } from '@apollo/client';
-import { GET_MESSAGES, MESSAGE_SUBSCRIPTION } from '@/utils/graphqlQueries';
+import { GET_MESSAGES } from '../graphql/queries';
+import { MESSAGE_SUBSCRIPTION } from '../graphql/subscriptions';
 import Search from '../../components/Search';
 import styles from './home.styles';
 import { getMyId } from '@/utils/getMyId';
@@ -64,7 +65,7 @@ export default function Home() {
     const retryCount = useRef(0);
 
     const { restart } = useSubscription(MESSAGE_SUBSCRIPTION, {
-        variables: { receiverId: myId }, skip: !myId,
+        variables: { receiverId: '2' }, skip: !myId,
         onData({ client, data }) {
             const newMessage = data.data.newMessage;
 
@@ -86,7 +87,7 @@ export default function Home() {
             retryCount.current++; // Increment retry count without resetting on re-renders
             console.log(`Retrying... Attempt ${retryCount.current}`);
             console.log(error);
-            restart();
+            restart()
         }
     });
 
