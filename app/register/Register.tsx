@@ -3,7 +3,7 @@ import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useNavigation } from 'expo-router';
-import { CREATE_USER } from '../graphql/mutations';
+import { CREATE_USER } from '../../graphql/mutations';
 import { useMutation } from '@apollo/client';
 import styles from './register.styles';
 
